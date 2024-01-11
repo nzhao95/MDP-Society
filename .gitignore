@@ -1,0 +1,20 @@
+# .gitignore
+
+# Virtual Environment
+venv/
+
+# Compiled Python files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+
+# Log files
+*.log
+
+# Database files
+*.sqlite3
+
+# IDE-specific directories
+.idea/
