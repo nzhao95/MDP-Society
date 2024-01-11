@@ -2,6 +2,8 @@
 
 # Virtual Environment
 venv/
+Lib/
+Scripts/
 
 # Compiled Python files
 __pycache__/
