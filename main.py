@@ -88,6 +88,7 @@ DEATH_VALUE = -1e10
 
 class Human:
     _WorldIndex = -1
+    _InAction = False
 
     def __init__(self, position, satisfaction = DEFAULT_SATISFACTION):
         self._Position = position
@@ -120,34 +121,34 @@ class Need:
 
 
 class Action:
-    _Need = None
-    _Result = lambda x : x
-    _TimeNeed = lambda t : 1
-    _EndPosition = lambda pos, velocity, world : pos
+    _Needs = []
+    _Reward = lambda h, w : []
+    _Duration = lambda h, w : 1
+    _Destination = lambda h, w : h._Position
 
-    def __init__(self, need = None, result = None, timeNeeded = None, endPosition = None):
-        self._Need = need
-        if result is not None:
-            self._Result = result
-        if timeNeeded is not None:
-            self._TimeNeed = timeNeeded
-        if endPosition is not None:
-            self._EndPosition = endPosition
+    def __init__(self, needs = [], reward = None, duration = None, destination = None):
+        self._Needs = needs
+        if reward is not None:
+            self._Reward = reward
+        if duration is not None:
+            self._Duration = duration
+        if destination is not None:
+            self._Destination = destination
 
     def Do(self, human, world):
-        if self._Need:
-            need_index = HUMAN_NEEDS_INDICES[self._Need]
-            human._Satisfaction[need_index] = self._Result(human._Satisfaction[need_index])
-        if self._EndPosition is not None:
-            human._Position[0], human._Position[1] = self._EndPosition(human._Position, WALKING_VELOCITY, element_list = world._Lakes)
+        if self._Needs:
+            need_index = HUMAN_NEEDS_INDICES[self._Needs]
+            human._Satisfaction[need_index] = self._Reward(human._Satisfaction)
+        if self._Destination is not None:
+            human._Position[0], human._Position[1] = self._Destination(human, world)
             human._PositionDirty = True
 
     def Predict(self, human):
-        if self._Need:
-            return self._Result(human._Satisfaction[HUMAN_NEEDS_INDICES[self._Need]])
+        if self._Needs:
+            return self._Reward(human._Satisfaction[HUMAN_NEEDS_INDICES[self._Needs]])
         
     def TimeNeeded(self, human, world):
-        return self._TimeNeed(world._CurentTime)
+        return self._Duration(human, world)
 
 def FindNearest(pos, element_list):
     if (len(element_list) == 0):
@@ -163,14 +164,18 @@ def FindNearest(pos, element_list):
             nearest_element = element
     return nearest_element
 
-def GoToCircleEdge(pos, vel, element_list):
-    destination = FindNearest(pos, element_list)
+def GoToCircleEdge(pos, vel, destination):
     dest_pos = destination[:2]
     dist = np.linalg.norm(dest_pos - pos)
     direction = (dest_pos - pos) / np.linalg.norm(dest_pos - pos)
     if (dist > destination[2]):
         return pos + (vel * direction)
     return pos
+
+def GoToClosestLake(human, world):
+    pos = human._Position
+    destination = FindNearest(pos,  world._Lakes)
+    return GoToCircleEdge(pos, WALKING_VELOCITY, destination)
 
 def GoToSquareEdge(pos, vel, element_list):
     destination = FindNearest(pos, element_list)
@@ -195,11 +200,11 @@ DEFAULT_SATISFACTION = [100, 100, 100, 100]
 WALKING_VELOCITY = 1.0
 
 # Make Actions 
-aMove = Action(None, None, None, lambda x, v, w : [x[0]+v, x[1]])
-aEat = Action(nFood, lambda x : 100, lambda t : 3)
-aDrink = Action(nWater, lambda x : 100, lambda t : 3, GoToCircleEdge)
-aSleep = Action(nRest, lambda x : 100, lambda t : 3)
-aPoop = Action(nPoo, lambda x : 100, lambda t : 3)
+aMove = Action(needs = [], reward = None, duration = None, destination = lambda h, w : [h._Position[0] + WALKING_VELOCITY, h._Position[1]])
+aEat = Action(needs = [nFood], reward = lambda h, w : [100], duration = lambda h, w : 3)
+aDrink = Action(needs = [nWater], reward = lambda h, w : [100], duration = lambda h, w : 1, destination = GoToClosestLake)
+aSleep = Action(needs = [nFood, nWater, nRest, nPoo], reward = lambda h, w : [s for s in h._Satisfaction], duration = lambda h, w : 30)
+aPoop = Action(needs = [nPoo], reward = lambda h, w : [100], duration = lambda h, w : 2)
 
 POSSIBLE_ACTIONS = [aEat, aDrink, aSleep, aPoop]
 
