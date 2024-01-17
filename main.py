@@ -19,6 +19,7 @@ class World :
         self._HumanSatisfactions = np.array([human._Satisfaction for human in humans])
         i = 0
         for human in humans:
+            human._World = self
             human._WorldIndex = i
             human._Position = self._HumanPositions[i]
             human._Satisfaction = self._HumanSatisfactions[i]
@@ -79,24 +80,29 @@ class World :
             # fill in the axes rectangle
             fig.canvas.blit(ax.bbox)
 
-
-
 HUMAN_NEEDS = []
 DEFAULT_SATISFACTION = []
 POSSIBLE_ACTIONS = []
 DEATH_VALUE = -1e10
 
 class Human:
+    _World = None
     _WorldIndex = -1
-    _InAction = False
+    _CurrentAction = None
+    _CachedDestination = np.array([0, 0])
+    _CachedDuration = 0
+    _Commuting = False
+    _TimeSpentOnAction = 0
 
     def __init__(self, position, satisfaction = DEFAULT_SATISFACTION):
         self._Position = position
         self._Satisfaction = satisfaction
 
     def UpdateTime(self):
-        for need in HUMAN_NEEDS:
-            self._Satisfaction[need] = need._UpdateTime(self._Satisfaction[need])
+        for needIndex in range(len(HUMAN_NEEDS)):
+            self._Satisfaction[needIndex] = HUMAN_NEEDS[needIndex]._Depletion(self._Satisfaction[needIndex])
+        if self._CurrentAction != None:
+            self._CurrentAction.Update(self, self._World)
 
     def Reward(self):
         reward = 0
@@ -108,40 +114,57 @@ class Human:
         return 
 
     def DoAction(self, action, world):
+        if self._CurrentAction != None:
+            return
+        self._CurrentAction = action
         action.Do(self, world)
 
 
 class Need:
-    _Cost = lambda x : 0
-    _UpdateTime = lambda x : x
+    _Reward = lambda x : 0
+    _Depletion = lambda x : x
 
-    def __init__ (self, cost, func):
-        self._Cost = cost
-        self._UpdateCost = func
+    def __init__ (self, reward, depletion):
+        self._Reward = reward
+        self._Depletion = depletion
 
 
 class Action:
     _Needs = []
-    _Reward = lambda h, w : []
+    _Satisfaction = lambda h, w : []
     _Duration = lambda h, w : 1
     _Destination = lambda h, w : h._Position
 
-    def __init__(self, needs = [], reward = None, duration = None, destination = None):
+    def __init__(self, needs = [], satisfaction = None, duration = None, destination = None):
         self._Needs = needs
-        if reward is not None:
-            self._Reward = reward
+        if satisfaction is not None:
+            self._Satisfaction = satisfaction
         if duration is not None:
             self._Duration = duration
         if destination is not None:
             self._Destination = destination
 
     def Do(self, human, world):
-        if self._Needs:
-            need_index = HUMAN_NEEDS_INDICES[self._Needs]
-            human._Satisfaction[need_index] = self._Reward(human._Satisfaction)
         if self._Destination is not None:
-            human._Position[0], human._Position[1] = self._Destination(human, world)
-            human._PositionDirty = True
+            human._CachedDestination = self._Destination(human, world)
+        human._Commuting = Norm(human._CachedDestination - human._Position) > 0.01
+        human._CachedDuration = self._Duration(human, world)
+        human._TimeSpentOnAction = 0
+
+    def Update(self, human, world):
+        if human._Commuting:
+            human._Position[0], human._Position[1] = human._Position + (human._CachedDestination - human._Position) / Norm(human._CachedDestination - human._Position) * WALKING_VELOCITY
+            human._Commuting = Norm(human._CachedDestination - human._Position) > 0.01
+            return
+        
+        if (human._TimeSpentOnAction < human._CachedDuration):
+            human._TimeSpentOnAction += 1
+            return
+        
+        out_satisfaction = self._Satisfaction(human._Satisfaction, world)
+        index = 0
+        for need in self._Needs:
+            human._Satisfaction[HUMAN_NEEDS_INDICES[need]] = out_satisfaction[index]
 
     def Predict(self, human):
         if self._Needs:
@@ -150,47 +173,50 @@ class Action:
     def TimeNeeded(self, human, world):
         return self._Duration(human, world)
 
+def Norm(v):
+    return np.linalg.norm(v)
+
 def FindNearest(pos, element_list):
     if (len(element_list) == 0):
         return None
     elif (len(element_list) == 1):
         return element_list[0]
     nearest_element = element_list[0]
-    min_dist = max(0, np.linalg.norm(pos - element_list[0][0:2]) - element_list[0][2])
+    min_dist = max(0, Norm(pos - element_list[0][0:2]) - element_list[0][2])
     for element in element_list[1:]: 
-        dist = max(0, np.linalg.norm(pos - element[0:2]) - element[2])
+        dist = max(0, Norm(pos - element[0:2]) - element[2])
         if dist < min_dist:
             min_dist = dist
             nearest_element = element
     return nearest_element
 
-def GoToCircleEdge(pos, vel, destination):
+def FindCircleEdge(pos, destination):
     dest_pos = destination[:2]
-    dist = np.linalg.norm(dest_pos - pos)
-    direction = (dest_pos - pos) / np.linalg.norm(dest_pos - pos)
-    if (dist > destination[2]):
-        return pos + (vel * direction)
-    return pos
+    dist = Norm(dest_pos - pos)
+    if (dist < destination[2]):
+        return pos
+    direction = (dest_pos - pos) / dist
+    return dest_pos - direction * destination[2]
 
-def GoToClosestLake(human, world):
+def FindClosestLake(human, world):
     pos = human._Position
     destination = FindNearest(pos,  world._Lakes)
-    return GoToCircleEdge(pos, WALKING_VELOCITY, destination)
+    return FindCircleEdge(pos, destination)
 
-def GoToSquareEdge(pos, vel, element_list):
+def FindSquareEdge(pos, vel, element_list):
     destination = FindNearest(pos, element_list)
     dest_pos = destination[:2] + destination[3:] / 2
     vec = dest_pos - pos
-    direction = (vec) / np.linalg.norm(vec)
+    direction = (vec) / Norm(vec)
     if (abs(vec[0]) > destination[2] / 2 or abs(vec[1]) > destination[3] /2):
         return pos + (vel * direction)
     return pos
 
 # Make Needs
-nFood = Need(lambda x : (50-x) * 2 if x >= 0 else DEATH_VALUE, lambda x : x - 1)
-nWater = Need(lambda x : (50-x) * 4 if x >= 0 else DEATH_VALUE, lambda x : x - 2)
-nRest = Need(lambda x : (50-x), lambda x : x - 1)
-nPoo = Need(lambda x : (50-x) / 2, lambda x : x - 1)
+nFood = Need(reward = lambda x : (50-x) * 2 if x >= 0 else DEATH_VALUE, depletion =  lambda x : x - 1)
+nWater = Need(reward = lambda x : (50-x) * 4 if x >= 0 else DEATH_VALUE, depletion =  lambda x : x - 2)
+nRest = Need(reward = lambda x : (50-x), depletion =  lambda x : x - 1)
+nPoo = Need(reward = lambda x : (50-x) / 2, depletion =  lambda x : x - 1)
 HUMAN_NEEDS = [nFood, nWater, nRest, nPoo]
 HUMAN_NEEDS_INDICES = dict()
 for index in range(len(HUMAN_NEEDS)):
@@ -200,11 +226,11 @@ DEFAULT_SATISFACTION = [100, 100, 100, 100]
 WALKING_VELOCITY = 1.0
 
 # Make Actions 
-aMove = Action(needs = [], reward = None, duration = None, destination = lambda h, w : [h._Position[0] + WALKING_VELOCITY, h._Position[1]])
-aEat = Action(needs = [nFood], reward = lambda h, w : [100], duration = lambda h, w : 3)
-aDrink = Action(needs = [nWater], reward = lambda h, w : [100], duration = lambda h, w : 1, destination = GoToClosestLake)
-aSleep = Action(needs = [nFood, nWater, nRest, nPoo], reward = lambda h, w : [s for s in h._Satisfaction], duration = lambda h, w : 30)
-aPoop = Action(needs = [nPoo], reward = lambda h, w : [100], duration = lambda h, w : 2)
+aMove = Action(needs = [], satisfaction = None, duration = None, destination = lambda h, w : [h._Position[0] + WALKING_VELOCITY, h._Position[1]])
+aEat = Action(needs = [nFood], satisfaction = lambda h, w : [100], duration = lambda h, w : 3)
+aDrink = Action(needs = [nWater], satisfaction = lambda h, w : [100], duration = lambda h, w : 1, destination = FindClosestLake)
+aSleep = Action(needs = [nFood, nWater, nRest, nPoo], satisfaction = lambda h, w : [h._Satisfaction[0], h._Satisfaction[1], 100, h._Satisfaction[2]], duration = lambda h, w : 30)
+aPoop = Action(needs = [nPoo], satisfaction = lambda h, w : [100], duration = lambda h, w : 2)
 
 POSSIBLE_ACTIONS = [aEat, aDrink, aSleep, aPoop]
 
@@ -222,9 +248,10 @@ background = myWorld.DrawBackground(fig, ax)
 humanPoints = myWorld.DrawHumans(ax)
 
 plt.ion()
+for human in myWorld._Humans : 
+    human.DoAction(aDrink, myWorld)
 for i in range(100):
-    for human in myWorld._Humans : 
-        human.DoAction(aDrink, myWorld)
+    myWorld.UpdateWorld()
     myWorld.UpdateDraw(myWorld, fig, ax, background, humanPoints)
     plt.pause(0.033)  # Add a short pause to observe the updates
 
