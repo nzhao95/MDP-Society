@@ -1,8 +1,10 @@
 use crate::types::Position;
+use std::cmp::max;
 
 pub struct Human {
     pub position : Position,
-    needs : Vec<Need>
+    needs : Vec<Need>,
+    pub alive : bool
 }
 
 impl Human {
@@ -12,25 +14,40 @@ impl Human {
             needs : vec![Need::Hunger(100),
             Need::Thirst(100),
             Need::Energy(100),
-            Need::Money(0)]
+            Need::Money(0)],
+            alive : true
         }
     }
 
     pub fn step_time(&mut self) {
         for need in self.needs.iter_mut() {
             match need {
-                Need::Hunger(mut val) => val -=1,
-                Need::Thirst(mut val) => val -=1,
-                Need::Energy(mut val) => val -=1,
-                Need::Money(mut val) => val -=1
+                Need::Hunger(val) => {
+                    *val = max(*val - 1, 0);
+                    if *val <= 0 {
+                        self.alive = false;
+                    }
+                } ,
+                Need::Thirst(val) => {
+                    *val = max(*val - 1, 0);
+                    if *val <= 0 {
+                        self.alive = false;
+                    }
+                },
+                Need::Energy(val) => {
+                    *val = max(*val - 1, 0);
+                },
+                Need::Money(val) => {
+                    *val = max(*val - 1, 0);
+                }
             }
         }
     }
 }
 
 pub enum Need {
-    Hunger(u32), 
-    Thirst(u32),
-    Energy(u32),
-    Money(u32)
+    Hunger(i32), 
+    Thirst(i32),
+    Energy(i32),
+    Money(i32)
 }

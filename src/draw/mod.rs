@@ -41,8 +41,9 @@ impl Drawable for Environment {
 
 impl Drawable for Human {
     fn draw(&self, x : f64, y : f64, cell_size : f64, c: Context, g : &mut G2d) {
+        let color = if self.alive {[1.0, 0.0, 0.0, 1.0]} else {[0.0, 0.0, 0.0, 1.0]};
         ellipse(
-            [1.0, 0.0, 0.0, 1.0],
+            color,
             [x * cell_size, 
             y * cell_size, 
             cell_size, 

@@ -45,4 +45,10 @@ impl World {
     pub fn add_lake(&mut self, start : Position, stop : Position) {
         self.set_cell(start, stop, Environment::Water(1.0));
     }
+
+    pub fn step_time(&mut self) {
+        for human in self.humans.iter_mut() {
+            human.step_time();
+        }
+    }
 }
