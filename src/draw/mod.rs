@@ -1,5 +1,5 @@
 use crate::world::{Environment, World};
-use crate::humans::Human;
+use crate::humans::{Human, Need};
 use piston_window::*;
 pub trait Drawable {
     fn draw(&self, x : f64, y : f64, cell_size : f64, c: Context, g : &mut G2d);
@@ -41,7 +41,18 @@ impl Drawable for Environment {
 
 impl Drawable for Human {
     fn draw(&self, x : f64, y : f64, cell_size : f64, c: Context, g : &mut G2d) {
-        let color = if self.alive {[1.0, 0.0, 0.0, 1.0]} else {[0.0, 0.0, 0.0, 1.0]};
+        let color = if !self.alive {[0.0, 0.0, 0.0, 0.3]} 
+        else {
+            let mut out_color = [0.0, 0.0, 0.0, 1.0];
+            for need in self.needs.iter() {
+                match need {
+                    Need::Thirst(value) => out_color[0] = *value as f32 * 0.01,
+                    Need::Hunger(value) =>  out_color[2] = *value as f32 * 0.01,
+                    _ => ()
+                }
+            }
+            out_color
+        };
         ellipse(
             color,
             [x * cell_size, 

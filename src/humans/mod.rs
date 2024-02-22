@@ -1,9 +1,13 @@
+pub mod behaviour;
+
 use crate::types::Position;
 use std::cmp::max;
 
+use self::behaviour::{Action, Drink};
+
 pub struct Human {
     pub position : Position,
-    needs : Vec<Need>,
+    pub needs : Vec<Need>,
     pub alive : bool
 }
 
@@ -42,7 +46,18 @@ impl Human {
                 }
             }
         }
+
+        self.make_optimal_action();
     }
+
+    pub fn make_optimal_action(&mut self) {
+        self.do_action::<Drink>(30)
+    }
+
+    pub fn do_action<A>(&mut self, value : i32) 
+        where A : Action {
+            A::execute(self, value);
+        }
 }
 
 pub enum Need {
