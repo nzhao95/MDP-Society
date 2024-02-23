@@ -48,7 +48,7 @@ impl World {
 
     pub fn step_time(&mut self) {
         for human in self.humans.iter_mut() {
-            human.step_time();
+            human.step_time(&self.cells);
         }
     }
 }

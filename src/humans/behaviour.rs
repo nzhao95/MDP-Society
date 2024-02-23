@@ -1,14 +1,17 @@
+use crate::types::Position;
+
 use crate::humans::{Human, Need};
 
 pub trait Action {
-    fn execute(human: &mut Human, value : i32);
+    type Item;
+    fn execute(human: &mut Human, value : Self::Item);
 }
 
-pub struct Drink {
-}
+pub struct Drink;
 
 impl Action for Drink {
-    fn execute(human: &mut Human, value : i32){
+    type Item = i32;
+    fn execute(human: &mut Human, value : Self::Item){
         for need in human.needs.iter_mut() {
             match need  {
                 Need::Thirst(val) => *val = 100.min(*val + value),
@@ -17,11 +20,11 @@ impl Action for Drink {
         }
     }
 }
-pub struct Eat {
-}
+pub struct Eat;
 
 impl Action for Eat {
-    fn execute(human: &mut Human, value : i32){
+    type Item = i32;
+    fn execute(human: &mut Human, value : Self::Item){
         for need in human.needs.iter_mut() {
             match need  {
                 Need::Hunger(val) => *val = 100.min(*val + value),
@@ -31,3 +34,11 @@ impl Action for Eat {
     }
 }
 
+pub struct Move;
+
+impl Action for Move {
+    type Item = Position;
+    fn execute(human: &mut Human, value : Self::Item) {
+        human.position = human.position + value;
+    }
+}
