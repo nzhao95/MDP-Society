@@ -138,6 +138,6 @@ impl Human {
 
 pub struct Need {
     pub value : i32, 
-    min_value : i32,
-    max_value : i32
+    pub min_value : i32,
+    pub max_value : i32
 }
