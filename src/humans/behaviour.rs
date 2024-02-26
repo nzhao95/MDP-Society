@@ -12,12 +12,7 @@ pub struct Drink;
 impl Action for Drink {
     type Item = i32;
     fn execute(human: &mut Human, value : Self::Item){
-        for need in human.needs.iter_mut() {
-            match need  {
-                Need::Thirst(val) => *val = 100.min(*val + value),
-                _ => ()
-            }
-        }
+        human.thirst.value = 100.min(human.thirst.value + value);
     }
 }
 pub struct Eat;
@@ -25,12 +20,7 @@ pub struct Eat;
 impl Action for Eat {
     type Item = i32;
     fn execute(human: &mut Human, value : Self::Item){
-        for need in human.needs.iter_mut() {
-            match need  {
-                Need::Hunger(val) => *val = 100.min(*val + value),
-                _ => ()
-            }
-        }
+        human.hunger.value = 100.min(human.hunger.value + value);
     }
 }
 

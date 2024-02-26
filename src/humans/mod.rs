@@ -8,7 +8,10 @@ use self::behaviour::{Action, Drink, Move};
 
 pub struct Human {
     pub position : Position,
-    pub needs : Vec<Need>,
+    pub hunger : Need,
+    pub thirst : Need,
+    pub energy : Need,
+    pub money : Need,
     pub alive : bool
 }
 
@@ -16,36 +19,32 @@ impl Human {
     pub fn new(x : i32, y : i32) -> Self{
         Human{
             position : Position{x, y},
-            needs : vec![Need::Hunger(100),
-            Need::Thirst(100),
-            Need::Energy(100),
-            Need::Money(0)],
+            hunger : Need{value : 100, min_value : 0, max_value : 100},
+            thirst : Need{value : 100, min_value : 0, max_value : 100},
+            energy : Need{value : 100, min_value : 0, max_value : 100},
+            money : Need{value : 0, min_value : 0, max_value : i32::MAX},
             alive : true
         }
     }
 
     pub fn step_time(&mut self, environment : &Vec<Vec<Environment>>) {
-        for need in self.needs.iter_mut() {
-            match need {
-                Need::Hunger(val) => {
-                    *val = max(*val - 1, 0);
-                    if *val <= 0 {
-                        self.alive = false;
-                    }
-                } ,
-                Need::Thirst(val) => {
-                    *val = max(*val - 1, 0);
-                    if *val <= 0 {
-                        self.alive = false;
-                    }
-                },
-                Need::Energy(val) => {
-                    *val = max(*val - 1, 0);
-                },
-                Need::Money(val) => {
-                    *val = max(*val - 1, 0);
-                }
+        {
+            self.hunger.value = max(self.hunger.value - 1, 0);
+            if self.hunger.value <= 0 {
+                self.alive = false;
             }
+        }
+        {
+            self.thirst.value = max(self.thirst.value - 1, 0);
+            if self.thirst.value <= 0 {
+                self.alive = false;
+            }
+        }
+        {
+            self.energy.value = max(self.energy.value - 1, 0);
+        }
+        {
+            self.money.value = max(self.money.value - 1, 0);
         }
 
         self.make_optimal_action(environment);
@@ -137,9 +136,8 @@ impl Human {
     }
 }
 
-pub enum Need {
-    Hunger(i32), 
-    Thirst(i32),
-    Energy(i32),
-    Money(i32)
+pub struct Need {
+    pub value : i32, 
+    min_value : i32,
+    max_value : i32
 }
