@@ -12,6 +12,11 @@ impl Position {
     pub fn new(x : i32, y : i32) -> Position {
         Position{x,y}
     }
+
+    pub fn manhattan_dist(&self, other : &Position) -> i32 {
+        let diff = *self - *other;
+        diff.x.abs() + diff.y.abs()
+    }
 }
 
 impl Add<Position> for Position {

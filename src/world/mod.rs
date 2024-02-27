@@ -20,11 +20,28 @@ pub struct World {
 pub struct Environment {
     pub cells : Vec<Vec<Element>>,
     pub world_limits : (usize, usize),
+    pub forests : Vec<Position>,
+    pub lakes : Vec<Position>
 }
 
 impl Environment {
     pub fn get_element(&self, x : usize, y : usize) -> &Element {
         &self.cells[x][y]
+    }
+
+    pub fn distance_to_lake(&self, human : &Human) -> i32 {
+        self.lakes
+        .iter()
+        .map(|x| x.manhattan_dist(&human.position))
+        .min()
+        .unwrap()
+    }
+
+    pub fn distance_to_forest(&self, human : &Human) -> i32 {
+        self.forests.iter()
+        .map(|x| x.manhattan_dist(&human.position))
+        .min()
+        .unwrap()
     }
 }
 
@@ -34,7 +51,9 @@ impl World {
             humans : Vec::new(),
             environment : Arc::new(RwLock::new(Environment{
                 cells : vec![vec![Element::None; width]; height],
-                world_limits : (height, width)
+                world_limits : (height, width),
+                forests : Vec::new(),
+                lakes : Vec::new()
             })),
             cell_size
         }
@@ -55,11 +74,17 @@ impl World {
     }
 
     pub fn add_forest(&mut self, start : Position, stop : Position) {
-        World::set_cell(self.environment.write().unwrap().deref_mut(), start, stop, Element::Tree(1.0));
+        let mut environment = self.environment.write().unwrap();
+        World::set_cell(environment.deref_mut(), start, stop, Element::Tree(1.0));
+        let mid = Position{ x : (start.x + stop.x)/2, y : (start.y + stop.y)};
+        environment.forests.push(mid);
     }
 
     pub fn add_lake(&mut self, start : Position, stop : Position) {
-        World::set_cell(self.environment.write().unwrap().deref_mut(), start, stop, Element::Water(1.0));
+        let mut environment = self.environment.write().unwrap();
+        World::set_cell(environment.deref_mut(), start, stop, Element::Water(1.0));
+        let mid = Position{ x : (start.x + stop.x)/2, y : (start.y + stop.y)};
+        environment.lakes.push(mid);
     }
 
     pub fn step_time(&mut self) {

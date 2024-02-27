@@ -33,6 +33,7 @@ impl Policy {
 
     pub fn train<A : Agent>(&mut self, agent : &mut A, iterations : usize, alpha : f64, gamma : f64, epsilon : f64) {
         
+        let percent_step = iterations / 100;
         println!("Training Begins");
         for i in 0..iterations {
             let mut current_state = agent.reset();
@@ -69,7 +70,7 @@ impl Policy {
                 agent.simulation_step_time();
             }
 
-            if i%10000 == 0 {
+            if i%percent_step == 0 {
                 println!("Completion : {}%", i as f64 * 100.0 / iterations as f64)
             }
         }

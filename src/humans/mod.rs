@@ -61,12 +61,10 @@ impl Human {
     }
 
     fn find_closest(&self, element : Element) -> Option<Position> {
-        let environment = &self.environment.read().unwrap().cells;
-        if environment.is_empty() || environment[0].is_empty() {
-            return None;
-        }
-        let m = environment.len();
-        let n = environment[0].len();
+        let environment = &self.environment.read().unwrap();
+        let cells = &environment.cells;
+        
+        let (m, n)= environment.world_limits;
 
         let curr_x = self.position.x;
         let curr_y = self.position.y;
@@ -87,7 +85,7 @@ impl Human {
                     continue;
                 }
     
-                match environment[p.x as usize][p.y as usize] {
+                match cells[p.x as usize][p.y as usize] {
                     Element::Grass(_) => if matches!(element, Element::Grass(_)) {return Some(*p)},
                     Element::Water(_) => if matches!(element, Element::Water(_)) {return Some(*p)},
                     Element::Tree(_) => if matches!(element, Element::Tree(_)) {return Some(*p)},

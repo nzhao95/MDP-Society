@@ -1,3 +1,4 @@
+use std::cell;
 use std::cmp::max;
 
 use rand::Rng;
@@ -6,25 +7,8 @@ use crate::types::Position;
 
 use crate::humans::Human;
 use crate::learning::reinforcement::{Agent, Policy, State};
-use crate::world::Element;
+use crate::world::{Element, Environment};
 
-fn encode(human : &Human) -> State {
-    let key = ((
-      human.position.x as usize    * human.environment.read().unwrap().world_limits.1 
-    + human.position.y as usize  ) * human.thirst.max_value as usize
-    + human.thirst.value as usize) * human.hunger.max_value as usize
-    + human.hunger.value as usize;
-    
-    State{key : key as usize}
-}
-
-fn nb_states(human : &Human) -> usize {
-    let env = human.environment.read().unwrap();
-    env.world_limits.0 
-    * env.world_limits.1 
-    * (human.thirst.max_value as usize + 1)
-    * (human.hunger.max_value as usize + 1)
-}
 pub struct RlBehaviour {
     policy : Policy
 }
@@ -110,24 +94,15 @@ impl Agent for Human{
             return 1000.0;
         }
 
-        let hunger_reward = if self.hunger.value > 80 {
-            5.0
-        } else if self.hunger.value > 30 {
-            1.0
-        } else if self.hunger.value > 10 {
-            1.0
-        } else {
-            -5.0
-        };
-        let thirst_reward = if self.thirst.value > 80 {
-            1.0
-        } else if self.thirst.value > 30 {
-            0.0
-        } else if self.thirst.value > 10 {
-            -1.0
-        } else {
-            -5.0
-        };
+        let hunger_reward = if self.hunger.value > 80 { 5.0 }
+        else if self.hunger.value > 30 { 1.0 }
+        else if self.hunger.value > 10 { 1.0 } 
+        else { -5.0 };
+
+        let thirst_reward = if self.thirst.value > 80 { 1.0 }
+        else if self.thirst.value > 30 { 0.0 }
+        else if self.thirst.value > 10 { -1.0 } 
+        else { -5.0 };
 
         hunger_reward + thirst_reward
     }
@@ -172,7 +147,7 @@ impl Action for Drink {
                 human.thirst.value = 100.min(human.thirst.value + value);
                 return 50.0;
             }
-        -1.0
+        0.0
     }
 }
 pub struct Eat;
@@ -185,7 +160,7 @@ impl Action for Eat {
             human.hunger.value = 100.min(human.hunger.value + value);
             return 50.0;
         }
-        -1.0
+        0.0
     }
 }
 
@@ -207,4 +182,48 @@ impl Action for Move {
         }
         1.0
     }
+}
+
+
+fn encode(human : &Human) -> State {
+    let thirst_state = if human.thirst.value > 80 { 0 } 
+    else if human.thirst.value > 30 { 1 }
+    else if human.thirst.value > 10 { 2 }
+    else { 3};
+
+    let hunger_state = if human.hunger.value > 80 { 0 }
+    else if human.hunger.value > 30 { 1 }
+    else if human.hunger.value > 10 { 2 }
+    else { 3 };
+
+    let env = &human.environment.read().unwrap();
+    let distance_to_lake = env.distance_to_lake(human);
+    let closeness_to_lake = if distance_to_lake > 20 { 0 }
+    else if distance_to_lake > 5 { 1 }
+    else { 2 };
+
+    let distance_to_forest = env.distance_to_forest(human);
+    let closeness_to_forest = if distance_to_forest > 20 { 0 }
+    else if distance_to_forest > 5 { 1 }
+    else { 2 };
+
+    let key = ((((
+      human.position.x as usize    * human.environment.read().unwrap().world_limits.1 
+    + human.position.y as usize  ) * 4
+    + thirst_state as usize) * 4
+    + hunger_state as usize) * 3
+    + closeness_to_lake as usize) * 3
+    + closeness_to_forest as usize;
+    
+    State{key : key as usize}
+}
+
+fn nb_states(human : &Human) -> usize {
+    let env = human.environment.read().unwrap();
+    env.world_limits.0      // World Height
+    * env.world_limits.1    // World Width
+    * 4                     // Thirst States
+    * 4                     // Hunger States    
+    * 3                     // Closeness to Forest States
+    * 3                     // Closeness to Lake States
 }
