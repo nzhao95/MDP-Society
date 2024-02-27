@@ -1,11 +1,12 @@
 pub mod behaviour;
 
+use crate::learning::reinforcement::Agent;
 use crate::world::{Element, Environment};
 use crate::types::Position;
-use std::sync::{Arc, Mutex, RwLock};
-use std::{cmp::max, rc::Rc};
+use std::sync::{Arc, RwLock};
+use std::cmp::max;
 
-use self::behaviour::{Action, Drink, Move, RlBehaviour};
+use self::behaviour::{Behaviour, RlBehaviour};
 
 pub struct Human {
     pub position : Position,
@@ -14,12 +15,12 @@ pub struct Human {
     pub energy : Need,
     pub money : Need,
     pub alive : bool,
-    pub behaviour : Arc<Mutex<RlBehaviour>>,
+    pub behaviour : Arc<RwLock<RlBehaviour>>,
     pub environment : Arc<RwLock<Environment>>
 }
 
 impl Human {
-    pub fn new(x : i32, y : i32, behaviour : Option<Arc<Mutex<RlBehaviour>>>, environment :Arc<RwLock<Environment>>) -> Self{
+    pub fn new(x : i32, y : i32, behaviour : Arc<RwLock<RlBehaviour>>, environment :Arc<RwLock<Environment>>) -> Self{
         Human{
             position : Position{x, y},
             hunger : Need{value : 100, min_value : 0, max_value : 100},
@@ -27,15 +28,12 @@ impl Human {
             energy : Need{value : 100, min_value : 0, max_value : 100},
             money : Need{value : 0, min_value : 0, max_value : i32::MAX},
             alive : true,
-            behaviour : match behaviour { 
-                Some(val) => val.clone(),
-                None => Arc::new(Mutex::new(RlBehaviour::new()))
-            },
+            behaviour : behaviour.clone(),
             environment
         }
     }
 
-    pub fn step_time(&mut self, element : &Vec<Vec<Element>>) {
+    pub fn step_time(&mut self) {
         {
             self.hunger.value = max(self.hunger.value - 1, 0);
             if self.hunger.value <= 0 {
@@ -54,49 +52,12 @@ impl Human {
         {
             self.money.value = max(self.money.value - 1, 0);
         }
-
-        self.make_optimal_action(element);
-    }
-
-    pub fn make_optimal_action(&mut self, element : &Vec<Vec<Element>>) {
-        let x = self.position.x as usize;
-        let y = self.position.y as usize;
-        if element.is_empty() || element[0].is_empty() {
-            return;
-        }
-        let m = element.len();
-        let n = element[0].len();
         
-        // TODO : Check if we only want positive positions
-        if x >= m || y >= n {
-            return;
-        }
-
-        if let Element::Water(_) = element[x][y] {
-            self.do_action::<Drink>(30);
-        }
-        else {
-            if let Some(closest_water) = self.find_closest(Element::Water(0.0), element) {
-                let direction = closest_water - self.position;
-                if direction.x.abs() > direction.y.abs() {
-                    self.do_action::<Move>(Position::new(direction.x.signum(), 0));
-                }
-                else if direction.x.abs() < direction.y.abs() {
-                    self.do_action::<Move>(Position::new(0, direction.y.signum()));
-                }
-                else {
-                    self.do_action::<Move>(Position::new(direction.x.signum(), direction.y.signum()));    
-                }
-            }
-        }
+        self.step();
     }
 
-    pub fn do_action<A>(&mut self, value : A::Item) 
-        where A : Action {
-        A::execute(self, value);
-    }
-
-    fn find_closest(&self, element : Element, environment : &Vec<Vec<Element>>) -> Option<Position> {
+    fn find_closest(&self, element : Element) -> Option<Position> {
+        let environment = &self.environment.read().unwrap().cells;
         if environment.is_empty() || environment[0].is_empty() {
             return None;
         }

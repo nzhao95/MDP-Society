@@ -5,6 +5,26 @@ use crate::types::Position;
 use crate::humans::Human;
 use crate::learning::reinforcement::{Agent, Policy, State};
 
+fn encode(human : &Human) -> State {
+    let key = ((((
+      human.position.x as usize    * human.environment.read().unwrap().world_limits.1 
+    + human.position.y as usize  ) * human.hunger.max_value as usize
+    + human.hunger.value as usize) * human.thirst.max_value as usize
+    + human.thirst.value as usize) * human.energy.max_value as usize
+    + human.energy.value as usize) * human.money.max_value as usize
+    + human.money.value as usize;
+    
+    State{key : key as usize}
+}
+
+fn nb_states(human : &Human) -> usize {
+    let env = human.environment.read().unwrap();
+    env.world_limits.0 * env.world_limits.1 
+        * human.hunger.max_value as usize
+        * human.thirst.max_value as usize
+        * human.energy.max_value as usize
+        * human.money.max_value as usize
+}
 pub struct RlBehaviour {
     policy : Policy
 }
@@ -12,38 +32,40 @@ pub struct RlBehaviour {
 impl RlBehaviour {
     pub fn new() -> RlBehaviour {
         RlBehaviour {
-            policy : Policy::new(0,0)
+            policy : Policy::new()
         }
+    }
+
+    fn init(&mut self, train_agent : &mut Human) {
+        self.policy.init(nb_states(&train_agent), 6);
+    }
+
+    pub fn train(&mut self, train_agent: &mut Human, iterations: usize, alpha: f64, gamma: f64, epsilon: f64) {
+        self.init(train_agent);
+        self.policy.train(train_agent, iterations, alpha, gamma, epsilon)
     }
 }
 
+
 pub trait Behaviour {
-    fn predict_action(&self, human : &Human) -> usize;
-    fn encode(&self, human : &Human) -> State;
+    fn predict_action(&self, human : &Human) -> usize;    
+    fn step(&self, human : &mut Human);
 }
+
 impl Behaviour for RlBehaviour {
     fn predict_action(&self, human : &Human) -> usize {
-        let current_state = self.encode(human);
+        let current_state = encode(human);
         self.policy.predict_action(&current_state)
     }
     
-    fn encode(&self, human : &Human) -> State {
-        let key = ((((
-          human.position.x    * human.environment.read().unwrap().world_limits.1 as i32 
-        + human.position.y  ) * human.hunger.max_value
-        + human.hunger.value) * human.thirst.max_value
-        + human.thirst.value) * human.energy.max_value
-        + human.energy.value) * human.money.max_value
-        + human.money.value;
-        
-        State{key : key as usize}
+    fn step(&self, human : &mut Human) {
+        human.do_action(self.predict_action(human));
     }
 }
 
 impl Agent for Human{
     fn reset(&mut self) -> State {
         let mut rng = rand::thread_rng();
-        let behaviour = &self.behaviour;
         self.position = Position{x : rng.gen_range(0, self.environment.read().unwrap().world_limits.0 as i32), 
                                  y : rng.gen_range(0, self.environment.read().unwrap().world_limits.1 as i32)};
         self.hunger.value = 100;
@@ -52,17 +74,20 @@ impl Agent for Human{
         self.money.value = 0;
         self.alive = true;
 
-        behaviour.lock().unwrap().encode(&self)
+        encode(&self)
     }
 
-    fn step(&mut self, action : usize) -> (State, f64, bool) {
-        let behaviour = &self.behaviour;
-        match action {
-            0 => (),
-            _ => ()
-        }
+    fn do_action(&mut self, action : usize) -> (State, f64, bool) {
+        (encode(&self), 0.0, false)
+    }
 
-        (behaviour.lock().unwrap().encode(&self), 0.0, false)
+    fn choose_action(&self) -> usize {
+        let behaviour = self.behaviour.read().unwrap();
+        behaviour.predict_action(self)
+    }
+
+    fn step(&mut self) {
+        self.do_action(self.choose_action());
     }
 }
 

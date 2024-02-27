@@ -5,8 +5,13 @@ pub struct Policy {
 }
 
 impl Policy {
-    pub fn new( nb_states : usize, nb_actions : usize) -> Policy {
-        Policy {qtable : vec!(vec![0.0; nb_actions]; nb_states)}
+    pub fn new() -> Policy {
+        Policy {qtable : Vec::new()}
+    }
+
+    pub fn init(&mut self, nb_states : usize, nb_actons : usize) {
+        assert!(self.qtable.is_empty());
+        self.qtable = vec![vec![0.0; nb_actons]; nb_states];
     }
 
     pub fn get_value(&self, state : &State, action : usize) -> f64 {
@@ -28,9 +33,10 @@ impl Policy {
 
     pub fn train<A : Agent>(&mut self, agent : &mut A, iterations : usize, alpha : f64, gamma : f64, epsilon : f64) {
         
-        for _ in 0..iterations {
+        println!("Training Begins");
+        for i in 0..iterations {
             let mut current_state = agent.reset();
-            let mut reward = 0.0;
+            let mut reward;
             let mut finished = false;
 
             assert_ne!(self.qtable.len(), 0);
@@ -55,10 +61,14 @@ impl Policy {
                 let val = &mut self.qtable[current_state.key][action];
                 let old_value = *val;
 
-                (current_state, reward, finished) = agent.step(action);
+                (current_state, reward, finished) = agent.do_action(action);
 
                 *val = (1.0 - alpha) * old_value 
                         + alpha * (reward + gamma + next_max);
+            }
+
+            if i%100 == 0 {
+                print!("Completion : {}%", i as f64 * 100.0 / iterations as f64)
             }
         }
 
@@ -78,7 +88,7 @@ impl Policy {
             let mut lifetime = 0;
 
             while !finished {
-                (current_state, _, finished) = agent.step(self.predict_action(&current_state));
+                (current_state, _, finished) = agent.do_action(self.predict_action(&current_state));
                 lifetime += 1;
             }
 
@@ -93,6 +103,11 @@ pub struct State {
 }
 
 pub trait Agent {
+    // Learning
     fn reset(&mut self) -> State;
-    fn step(&mut self, action : usize) -> (State, f64, bool);
+    fn do_action(&mut self, action : usize) -> (State, f64, bool);
+
+    // Execution
+    fn choose_action(&self) -> usize;
+    fn step(&mut self);
 }
