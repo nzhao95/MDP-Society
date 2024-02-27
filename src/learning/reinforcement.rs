@@ -1,17 +1,12 @@
 use rand::{self, Rng};
 
-struct Environment {
-    pub states : Vec<State>, //All Possible States
-    pub nb_actions : usize, // All Possible Actions
-}
-
 pub struct Policy {
     qtable : Vec<Vec<f64>> // Reward table for each state and each action
 }
 
 impl Policy {
-    pub fn new(environment : Environment) -> Policy {
-        Policy {qtable : vec!(vec![0.0; environment.nb_actions]; environment.states.len())}
+    pub fn new( nb_states : usize, nb_actions : usize) -> Policy {
+        Policy {qtable : vec!(vec![0.0; nb_actions]; nb_states)}
     }
 
     pub fn get_value(&self, state : &State, action : usize) -> f64 {
@@ -33,7 +28,7 @@ impl Policy {
 
     pub fn train<A : Agent>(&mut self, agent : &mut A, iterations : usize, alpha : f64, gamma : f64, epsilon : f64) {
         
-        for i in 0..iterations {
+        for _ in 0..iterations {
             let mut current_state = agent.reset();
             let mut reward = 0.0;
             let mut finished = false;
@@ -77,13 +72,14 @@ impl Policy {
     pub fn evaluate<A : Agent>(&self, agent : &mut A, iterations : usize) {
 
         let mut average_lifetime = 0.0;
-        for i in 0..iterations {
+        for _ in 0..iterations {
             let mut current_state = agent.reset();
             let mut finished = false;
             let mut lifetime = 0;
 
             while !finished {
                 (current_state, _, finished) = agent.step(self.predict_action(&current_state));
+                lifetime += 1;
             }
 
             average_lifetime += lifetime as f64 / iterations as f64;

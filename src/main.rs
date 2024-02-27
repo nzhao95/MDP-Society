@@ -1,8 +1,11 @@
+use brains::humans::behaviour::{self, RlBehaviour};
 use piston_window::{PistonWindow, WindowSettings};
 use brains::world::World;
+use brains::humans::Human;
 use brains::types::Position;
 use brains::draw::Drawable;
 use piston_window::*;
+use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -10,15 +13,21 @@ use std::time::Duration;
 static TIME_STEP : Duration = Duration::from_millis(200);
 fn main() {
     let my_world = Arc::new(Mutex::new(World::new(50,50,10)));
+    let mut behaviour = Arc::new(Mutex::new(RlBehaviour::new()));
 
     {
         let mut world_data = my_world.lock().unwrap();
-        world_data.add_human(15, 18);
-        world_data.add_human(6, 5);
-        world_data.add_human(36, 45);
-        world_data.add_human(45, 31);
-        world_data.add_forest(Position{x : 12, y : 1}, Position{x : 18, y : 4});
-        world_data.add_lake(Position{x : 27, y : 24}, Position{x : 30, y : 42});
+        let new_human = Human::new(15, 18, Some(behaviour.clone()), world_data.environment.clone());
+        world_data.add_human(new_human);
+        let new_human = Human::new(6, 5, Some(behaviour.clone()), world_data.environment.clone());
+        world_data.add_human(new_human);
+        let new_human = Human::new(36, 45, Some(behaviour.clone()), world_data.environment.clone());
+        world_data.add_human(new_human);
+        let new_human = Human::new(45, 31, Some(behaviour.clone()), world_data.environment.clone());
+        world_data.add_human(new_human);
+        
+        world_data.add_forest( Position{x : 12, y : 1}, Position{x : 18, y : 4});
+        world_data.add_lake( Position{x : 27, y : 24}, Position{x : 30, y : 42});
     }
     
     let simulation_world = Arc::clone(&my_world);
