@@ -11,19 +11,26 @@ use std::time::Duration;
 
 static TIME_STEP : Duration = Duration::from_millis(200);
 fn main() {
-    let my_world = Arc::new(Mutex::new(World::new(50,50,10)));
+    let my_world = Arc::new(Mutex::new(World::new(20,20,10)));
     let behaviour = Arc::new(RwLock::new(RlBehaviour::new()));
     {
         let mut world_data = my_world.lock().unwrap();
         world_data.add_forest( Position{x : 12, y : 1}, Position{x : 18, y : 4});
-        world_data.add_lake( Position{x : 27, y : 24}, Position{x : 30, y : 42});
+        world_data.add_lake( Position{x : 1, y : 15}, Position{x : 3, y : 19});
     }
     
     {
         let world_data = my_world.lock().unwrap();
-        let mut train_human = Human::new(15, 18, behaviour.clone(), world_data.environment.clone());
+        let mut train_human = Human::new(0, 0, behaviour.clone(), world_data.environment.clone());
         behaviour.write().unwrap()
         .train(&mut train_human, 100000, 0.1, 0.6, 0.1);
+    }
+    
+    {
+        
+        let world_data = my_world.lock().unwrap();
+        let mut test_human = Human::new(15, 18, behaviour.clone(), world_data.environment.clone());
+        behaviour.read().unwrap().evaluate(&mut test_human, 1000);
     }
 
     {
@@ -32,9 +39,9 @@ fn main() {
         world_data.add_human(new_human);
         let new_human = Human::new(6, 5, behaviour.clone(), world_data.environment.clone());
         world_data.add_human(new_human);
-        let new_human = Human::new(36, 45, behaviour.clone(), world_data.environment.clone());
+        let new_human = Human::new(6, 5, behaviour.clone(), world_data.environment.clone());
         world_data.add_human(new_human);
-        let new_human = Human::new(45, 31, behaviour.clone(), world_data.environment.clone());
+        let new_human = Human::new(5, 13, behaviour.clone(), world_data.environment.clone());
         world_data.add_human(new_human);
         
     }
@@ -52,7 +59,7 @@ fn main() {
 
 
     let mut window: PistonWindow =
-    WindowSettings::new("My small world", [512; 2])
+    WindowSettings::new("My small world", [200; 2])
         .build().unwrap();
 
     while let Some(e) = window.next() {

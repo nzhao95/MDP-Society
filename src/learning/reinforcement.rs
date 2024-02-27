@@ -65,10 +65,12 @@ impl Policy {
 
                 *val = (1.0 - alpha) * old_value 
                         + alpha * (reward + gamma + next_max);
+
+                agent.simulation_step_time();
             }
 
-            if i%100 == 0 {
-                print!("Completion : {}%", i as f64 * 100.0 / iterations as f64)
+            if i%10000 == 0 {
+                println!("Completion : {}%", i as f64 * 100.0 / iterations as f64)
             }
         }
 
@@ -81,20 +83,32 @@ impl Policy {
     #[cfg(debug_assertions)]
     pub fn evaluate<A : Agent>(&self, agent : &mut A, iterations : usize) {
 
+        println!("Evaluating model");
         let mut average_lifetime = 0.0;
-        for _ in 0..iterations {
+        let mut average_reward = 0.0;
+        for i in 0..iterations {
             let mut current_state = agent.reset();
+            let mut reward;
+            let mut lifetime_reward = 0.0;
             let mut finished = false;
             let mut lifetime = 0;
 
             while !finished {
-                (current_state, _, finished) = agent.do_action(self.predict_action(&current_state));
+                (current_state, reward, finished) = agent.do_action(self.predict_action(&current_state));
+                agent.simulation_step_time();
                 lifetime += 1;
+                lifetime_reward += reward;
+            }
+
+            if i%100 == 0 {
+                println!("Completion : {}%", i as f64 * 100.0 / iterations as f64)
             }
 
             average_lifetime += lifetime as f64 / iterations as f64;
+            average_reward += lifetime_reward as f64 / (lifetime as f64 * iterations as f64);
         }
         println!("Average Lifetime : {average_lifetime}");
+        println!("Average Reward : {average_reward}");
     }
 }
 
@@ -106,6 +120,8 @@ pub trait Agent {
     // Learning
     fn reset(&mut self) -> State;
     fn do_action(&mut self, action : usize) -> (State, f64, bool);
+    fn simulation_step_time(&mut self);
+    fn compute_reward(&self) -> f64;
 
     // Execution
     fn choose_action(&self) -> usize;

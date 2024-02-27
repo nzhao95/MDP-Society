@@ -10,14 +10,14 @@ impl Drawable for Element {
         match self {
             Element::Tree(val) =>
                     rectangle(
-                        [0.4 * (1.0 - val) as f32, 0.8 * (1.0 - 0.9* val) as f32, 
-                                0.5 * (1.0 - val) as f32, 
+                        [0.2 , 0.8 * (1.0 - 0.2* val) as f32, 
+                                0.3 * (2.0 - val) as f32, 
                                 1.0],
                         [x as f64 * cell_size, y as f64 *cell_size, cell_size, cell_size], // rectangle
                         c.transform, g),
             Element::Water(val) => 
                     rectangle(
-                        [0.0, 0.0, 0.7 * (1.0 - val * 0.8) as f32, 1.0],
+                        [0.3, 0.3, 0.7 * (1.0 - val * 0.2) as f32, 1.0],
                         [x as f64 * cell_size, y as f64 *cell_size, cell_size, cell_size], // rectangle
                         c.transform, g),
             Element::Grass(val) => 

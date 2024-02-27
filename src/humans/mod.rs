@@ -10,6 +10,7 @@ use self::behaviour::{Behaviour, RlBehaviour};
 
 pub struct Human {
     pub position : Position,
+    pub age : u32,
     pub hunger : Need,
     pub thirst : Need,
     pub energy : Need,
@@ -23,6 +24,7 @@ impl Human {
     pub fn new(x : i32, y : i32, behaviour : Arc<RwLock<RlBehaviour>>, environment :Arc<RwLock<Environment>>) -> Self{
         Human{
             position : Position{x, y},
+            age : 0,
             hunger : Need{value : 100, min_value : 0, max_value : 100},
             thirst : Need{value : 100, min_value : 0, max_value : 100},
             energy : Need{value : 100, min_value : 0, max_value : 100},
@@ -52,6 +54,8 @@ impl Human {
         {
             self.money.value = max(self.money.value - 1, 0);
         }
+
+        self.age += 1;
         
         self.step();
     }

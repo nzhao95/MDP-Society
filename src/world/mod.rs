@@ -22,6 +22,12 @@ pub struct Environment {
     pub world_limits : (usize, usize),
 }
 
+impl Environment {
+    pub fn get_element(&self, x : usize, y : usize) -> &Element {
+        &self.cells[x][y]
+    }
+}
+
 impl World {
     pub fn new(height : usize, width : usize, cell_size : usize) -> Self {
         World{
