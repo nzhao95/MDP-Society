@@ -36,6 +36,10 @@ impl Human {
     }
 
     pub fn step_time(&mut self) {
+        if !self.alive {
+            return;
+        }
+        
         {
             self.hunger.value = max(self.hunger.value - 1, 0);
             if self.hunger.value <= 0 {

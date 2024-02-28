@@ -9,9 +9,18 @@ impl Policy {
         Policy {qtable : Vec::new()}
     }
 
-    pub fn init(&mut self, nb_states : usize, nb_actons : usize) {
+    pub fn init(&mut self, nb_states : usize, nb_actions : usize) {
         assert!(self.qtable.is_empty());
-        self.qtable = vec![vec![0.0; nb_actons]; nb_states];
+        let mut rng = rand::thread_rng();
+        self.qtable = (0..nb_states)
+        .map(|_| 
+            (0..nb_actions)
+            .map(|_| 
+                rng.gen_range(-1.0, 1.0)
+            )
+            .collect()
+        )
+        .collect();
     }
 
     pub fn get_value(&self, state : &State, action : usize) -> f64 {
@@ -35,17 +44,16 @@ impl Policy {
         
         let percent_step = iterations / 100;
         println!("Training Begins");
+        assert_ne!(self.qtable.len(), 0);
+        let nb_actions = self.qtable[0].len();
+        assert_ne!(nb_actions, 0);
+        let mut rng = rand::thread_rng();
+        
         for i in 0..iterations {
             let mut current_state = agent.reset();
             let mut reward;
             let mut finished = false;
 
-            assert_ne!(self.qtable.len(), 0);
-            
-            let nb_actions = self.qtable[0].len();
-            assert_ne!(nb_actions, 0);
-            
-            let mut rng = rand::thread_rng();
             while !finished {
                 let action =
                 if rng.gen_range(0.0, 1.0) < epsilon {
@@ -62,12 +70,10 @@ impl Policy {
                 let val = &mut self.qtable[current_state.key][action];
                 let old_value = *val;
 
-                (current_state, reward, finished) = agent.do_action(action);
+                (current_state, reward, finished) = agent.simulate_action(action);
 
                 *val = (1.0 - alpha) * old_value 
                         + alpha * (reward + gamma + next_max);
-
-                agent.simulation_step_time();
             }
 
             if i%percent_step == 0 {
@@ -78,6 +84,9 @@ impl Policy {
         #[cfg(debug_assertions)]
         {
             println!("Training Finished");
+            for i in 0..20 {
+                println!("{:?}", self.qtable[i]);
+            }
         }
     }
 
@@ -95,8 +104,7 @@ impl Policy {
             let mut lifetime = 0;
 
             while !finished {
-                (current_state, reward, finished) = agent.do_action(self.predict_action(&current_state));
-                agent.simulation_step_time();
+                (current_state, reward, finished) = agent.simulate_action(self.predict_action(&current_state));
                 lifetime += 1;
                 lifetime_reward += reward;
             }
@@ -120,11 +128,12 @@ pub struct State {
 pub trait Agent {
     // Learning
     fn reset(&mut self) -> State;
-    fn do_action(&mut self, action : usize) -> (State, f64, bool);
+    fn simulate_action(&mut self, action : usize) -> (State, f64, bool);
     fn simulation_step_time(&mut self);
     fn compute_reward(&self) -> f64;
 
     // Execution
     fn choose_action(&self) -> usize;
+    fn do_action(&mut self, action : usize);
     fn step(&mut self);
 }

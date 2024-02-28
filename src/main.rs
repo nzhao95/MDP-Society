@@ -23,7 +23,7 @@ fn main() {
         let world_data = my_world.lock().unwrap();
         let mut train_human = Human::new(0, 0, behaviour.clone(), world_data.environment.clone());
         behaviour.write().unwrap()
-        .train(&mut train_human, 100000, 0.1, 0.6, 0.1);
+        .train(&mut train_human, 100, 0.1, 0.6, 0.3);
     }
     
     {
