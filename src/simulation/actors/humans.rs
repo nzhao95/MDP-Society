@@ -1,12 +1,13 @@
-pub mod behaviour;
+
+use crate::simulation::actors::behaviour::{Behaviour, RlBehaviour};
+use crate::simulation::world::{Element, Environment};
 
 use crate::learning::reinforcement::Agent;
-use crate::world::{Element, Environment};
 use crate::types::Position;
+
 use std::sync::{Arc, RwLock};
 use std::cmp::max;
 
-use self::behaviour::{Behaviour, RlBehaviour};
 
 pub struct Human {
     pub position : Position,

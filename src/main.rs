@@ -1,10 +1,14 @@
-use brains::humans::behaviour::RlBehaviour;
-use piston_window::{PistonWindow, WindowSettings};
-use brains::world::World;
-use brains::humans::Human;
+use brains::simulation::{
+        actors:: { behaviour::RlBehaviour,
+                    humans::Human},
+        world::World};
+            
+use brains::display::draw::Drawable;
 use brains::types::Position;
-use brains::draw::Drawable;
+
+use piston_window::{PistonWindow, WindowSettings};
 use piston_window::*;
+
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;

@@ -1,13 +1,11 @@
-use std::cell;
-use std::cmp::max;
 
-use rand::Rng;
-
+use crate::learning::reinforcement::{Agent, Policy, State};
+use crate::simulation::actors::humans::Human;
+use crate::simulation::world::{Element, Environment};
 use crate::types::Position;
 
-use crate::humans::Human;
-use crate::learning::reinforcement::{Agent, Policy, State};
-use crate::world::{Element, Environment};
+use rand::Rng;
+use std::cmp::max;
 
 pub struct RlBehaviour {
     policy : Policy

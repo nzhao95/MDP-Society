@@ -1,5 +1,4 @@
-pub mod humans;
-pub mod world;
+pub mod simulation;
 pub mod types;
-pub mod draw;
+pub mod display;
 pub mod learning;

@@ -1,5 +1,6 @@
-use crate::world::{Element, World};
-use crate::humans::{Human, Need};
+use crate::simulation::world::{Element, World};
+use crate::simulation::actors::humans::Human;
+
 use piston_window::*;
 pub trait Drawable {
     fn draw(&self, x : f64, y : f64, cell_size : f64, c: Context, g : &mut G2d);

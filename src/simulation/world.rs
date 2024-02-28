@@ -1,5 +1,5 @@
 use crate::types::Position;
-use crate::humans::Human;
+use crate::simulation::actors::humans::Human;
 use std::{cell::RefCell, cmp::{max, min}, ops::DerefMut, rc::Rc, sync::{Arc, Mutex, RwLock}};
 
 #[derive(Clone, Copy)]
