@@ -125,12 +125,25 @@ impl Agent for Human{
             3 => reward = Move::execute(self, Position::new(0, -1)),
             4 => reward = Drink::execute(self, 100),
             5 => reward = Eat::execute(self, 100),
-            _ => ()
+            _ => reward = {
+                let env = &self.environment.read().unwrap();
+                let resource = env.get_element(self.position.x as usize, self.position.y as usize); 
+                if matches!(resource, Element::Water(_)) {
+                    1000.0;
+                }
+                else if matches!(resource, Element::Tree(_)) {
+                    1000.0;
+                }
+                -100.0
+            }
             
         }
         self.simulation_step_time();
+        if !self.alive {
+            reward = -100.0;
+        }
         
-        (encode(&self), reward + self.compute_reward(), !self.alive || self.age > 10000)
+        (encode(&self), reward, !self.alive || self.age > 10000)
     }
 
     fn choose_action(&self) -> usize {
@@ -170,7 +183,7 @@ impl Action for Drink {
                 human.thirst.value = 100.min(human.thirst.value + value);
                 return 50.0;
             }
-        -10.0
+        -100.0
     }
 }
 pub struct Eat;
@@ -183,7 +196,7 @@ impl Action for Eat {
             human.hunger.value = 100.min(human.hunger.value + value);
             return 50.0;
         }
-        -10.0
+        -100.0
     }
 }
 
@@ -197,15 +210,22 @@ impl Action for Move {
 
         if human.position.x < 0 || human.position.x >= world_limits.0 as i32 {
             human.position.x = human.position.x.clamp(0, world_limits.0 as i32 - 1);
-            return 0.0;
+            return -1.0;
         }
         if human.position.y < 0 || human.position.y >= world_limits.1 as i32 {
             human.position.y = human.position.y.clamp(0, world_limits.1 as i32 - 1);
-            return 0.0
+            return -1.0
         }
         
         let env = &human.environment.read().unwrap();
-        if human.thirst.value < 80 {
+        let resource = env.get_element(human.position.x as usize, human.position.y as usize); 
+        if human.thirst.value < 80 && matches!(resource, Element::Water(_)) {
+            return 1000.0;
+        }
+        else if human.hunger.value < 80  && matches!(resource, Element::Tree(_)) {
+            return 1000.0;
+        }
+        else if human.thirst.value < 80 {
             let closest_lake = 
                 env.lakes
                 .iter()
@@ -234,51 +254,58 @@ impl Action for Move {
             }
         }
 
-        0.0
+        100.0
     }
 } 
 
 
-fn encode(human : &Human) -> State {
-    let thirst_state = if human.thirst.value > 80 { 0 } 
-    else if human.thirst.value > 30 { 1 }
-    else if human.thirst.value > 10 { 2 }
-    else { 3};
+fn encode(human: &Human) -> State {
+    let env = human.environment.read().unwrap();
+    let thirst_state = match human.thirst.value {
+        v if v > 80 => 0,
+        v if v > 30 => 1,
+        v if v > 10 => 2,
+        _ => 3,
+    };
 
-    let hunger_state = if human.hunger.value > 80 { 0 }
-    else if human.hunger.value > 30 { 1 }
-    else if human.hunger.value > 10 { 2 }
-    else { 3 };
+    let hunger_state = match human.hunger.value {
+        v if v > 80 => 0,
+        v if v > 30 => 1,
+        v if v > 10 => 2,
+        _ => 3,
+    };
 
-    let env = &human.environment.read().unwrap();
     let distance_to_lake = env.distance_to_lake(human);
-    let closeness_to_lake = if distance_to_lake > 20 { 0 }
-    else if distance_to_lake > 5 { 1 }
-    else { 2 };
+    let closeness_to_lake = match distance_to_lake {
+        v if v > 20 => 0,
+        v if v > 5 => 1,
+        _ => 2,
+    };
 
     let distance_to_forest = env.distance_to_forest(human);
-    let closeness_to_forest = if distance_to_forest > 20 { 0 }
-    else if distance_to_forest > 5 { 1 }
-    else { 2 };
+    let closeness_to_forest = match distance_to_forest {
+        v if v > 20 => 0,
+        v if v > 5 => 1,
+        _ => 2,
+    };
 
     let current_element = match env.get_element(human.position.x as usize, human.position.y as usize) {
         Element::Water(_) => 0,
         Element::Tree(_) => 1,
-        _ => 2
+        _ => 2,
     };
 
-    let key = (((((
-    
-      human.position.x as usize * human.environment.read().unwrap().world_limits.1 
-    + human.position.y as usize  ) * 4
-    + thirst_state as usize) * 4
-    + hunger_state as usize) * 3
-    + closeness_to_lake as usize) * 3
-    + closeness_to_forest as usize) * 3 
-    + current_element as usize;
-    
-    State{key : key as usize}
+    // Calculate the key using the encoded states
+    let key = (((((human.position.x as usize * env.world_limits.1 + human.position.y as usize) * 4
+        + thirst_state as usize) * 4
+        + hunger_state as usize) * 3
+        + closeness_to_lake as usize) * 3
+        + closeness_to_forest as usize) * 3
+        + current_element as usize;
+
+    State { key: key as usize }
 }
+
 
 fn nb_states(human : &Human) -> usize {
     let env = human.environment.read().unwrap();

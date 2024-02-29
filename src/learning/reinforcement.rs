@@ -1,7 +1,7 @@
 use rand::{self, Rng};
 
 pub struct Policy {
-    qtable : Vec<Vec<f64>> // Reward table for each state and each action
+    pub(crate) qtable : Vec<Vec<f64>> // Reward table for each state and each action
 }
 
 impl Policy {
@@ -48,10 +48,14 @@ impl Policy {
         let nb_actions = self.qtable[0].len();
         assert_ne!(nb_actions, 0);
         let mut rng = rand::thread_rng();
+
+        let mut average_reward = 0.0;
+        let mut action_count = vec![0; self.qtable[0].len()];
         
         for i in 0..iterations {
             let mut current_state = agent.reset();
-            let mut reward;
+            let mut lifetime_reward = 0.0;
+            let mut lifetime = 0;
             let mut finished = false;
 
             while !finished {
@@ -63,18 +67,26 @@ impl Policy {
                     self.predict_action(&current_state)
                 };
                 
-                let next_max = *self.qtable[current_state.key].iter()
+                action_count[action as usize] += 1;
+                
+                let old_value = self.qtable[current_state.key][action];
+
+                let (next_state, reward, dead) = agent.simulate_action(action);
+                lifetime_reward += reward;
+
+                let next_max = *self.qtable[next_state.key].iter()
                 .max_by(|a,b| a.partial_cmp(b).unwrap())
                 .unwrap();
+            
+                self.qtable[current_state.key][action] = (1.0 - alpha) * old_value 
+                        + alpha * (reward + gamma * next_max);
 
-                let val = &mut self.qtable[current_state.key][action];
-                let old_value = *val;
-
-                (current_state, reward, finished) = agent.simulate_action(action);
-
-                *val = (1.0 - alpha) * old_value 
-                        + alpha * (reward + gamma + next_max);
+                current_state = next_state;
+                finished = dead;
+                lifetime +=1;
             }
+            
+            average_reward += lifetime_reward as f64 / (lifetime as f64 * iterations as f64);
 
             if i%percent_step == 0 {
                 println!("Completion : {}%", i as f64 * 100.0 / iterations as f64)
@@ -87,6 +99,9 @@ impl Policy {
             for i in 0..20 {
                 println!("{:?}", self.qtable[i]);
             }
+            
+            println!("Training Average Total Reward : {average_reward}");
+            println!("Training Action counts : {:?}", action_count);
         }
     }
 
@@ -96,6 +111,7 @@ impl Policy {
         println!("Evaluating model");
         let mut average_lifetime = 0.0;
         let mut average_reward = 0.0;
+        let mut action_count = vec![0; self.qtable[0].len()];
         for i in 0..iterations {
             let mut current_state = agent.reset();
             let mut reward;
@@ -104,7 +120,9 @@ impl Policy {
             let mut lifetime = 0;
 
             while !finished {
-                (current_state, reward, finished) = agent.simulate_action(self.predict_action(&current_state));
+                let action = self.predict_action(&current_state);
+                action_count[action as usize] += 1;
+                (current_state, reward, finished) = agent.simulate_action(action);
                 lifetime += 1;
                 lifetime_reward += reward;
             }
@@ -117,7 +135,8 @@ impl Policy {
             average_reward += lifetime_reward as f64 / (lifetime as f64 * iterations as f64);
         }
         println!("Average Lifetime : {average_lifetime}");
-        println!("Average Reward : {average_reward}");
+        println!("Average Total Reward : {average_reward}");
+        println!("Action counts : {:?}", action_count);
     }
 }
 
