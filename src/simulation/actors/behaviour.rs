@@ -1,5 +1,5 @@
 
-use crate::learning::reinforcement::{Agent, Policy, State};
+use crate::learning::qlearning::{Agent, Policy, State};
 use crate::simulation::actors::humans::Human;
 use crate::simulation::world::{Element, Environment};
 use crate::types::Position;
@@ -7,13 +7,13 @@ use crate::types::Position;
 use rand::Rng;
 use std::cmp::max;
 
-pub struct RlBehaviour {
+pub struct QLBehaviour {
     policy : Policy
 }
 
-impl RlBehaviour {
-    pub fn new() -> RlBehaviour {
-        RlBehaviour {
+impl QLBehaviour {
+    pub fn new() -> QLBehaviour {
+        QLBehaviour {
             policy : Policy::new()
         }
     }
@@ -38,7 +38,7 @@ pub trait Behaviour {
     fn step(&self, human : &mut Human);
 }
 
-impl Behaviour for RlBehaviour {
+impl Behaviour for QLBehaviour {
     fn predict_action(&self, human : &Human) -> usize {
         let current_state = encode(human);
         self.policy.predict_action(&current_state)
@@ -67,15 +67,15 @@ impl Agent for Human{
     fn simulation_step_time(&mut self) {
         {
             self.hunger.value = max(self.hunger.value - 1, 0);
-            // if self.hunger.value <= 0 {
-            //     self.alive = false;
-            // }
+            if self.hunger.value <= 0 {
+                self.alive = false;
+            }
         }
         {
             self.thirst.value = max(self.thirst.value - 1, 0);
-            // if self.thirst.value <= 0 {
-            //     self.alive = false;
-            // }
+            if self.thirst.value <= 0 {
+                self.alive = false;
+            }
         }
         {
             self.energy.value = max(self.energy.value - 1, 0);
@@ -89,31 +89,29 @@ impl Agent for Human{
 
     fn compute_reward(&self) -> f64{
         if !self.alive {
-            return -50.0;
+            return -1000.0;
         }
 
-        if self.age > 10000 {
-            return 100.0;
-        }
+        let hunger_reward = if self.hunger.value > 80 { 1.0 }
+        else if self.hunger.value > 50 { 0.0 }
+        else if self.hunger.value > 20 { -30.0 } 
+        else { -100.0 };
 
-        let hunger_reward = if self.hunger.value > 80 { 20.0 }
-        else if self.hunger.value > 30 { 1.0 }
-        else if self.hunger.value > 10 { -1.0 } 
-        else { -5.0 };
-
-        let thirst_reward = if self.thirst.value > 80 { 20.0 }
-        else if self.thirst.value > 30 { 1.0 }
-        else if self.thirst.value > 10 { -1.0 } 
-        else { -5.0 };
+        let thirst_reward = if self.thirst.value > 80 { 1.0 }
+        else if self.thirst.value > 50 { 0.0 }
+        else if self.thirst.value > 20 { -30.0 } 
+        else { -100.0 };
 
         let env = self.environment.read().unwrap();
         let resource_reward = match env.get_element(self.position.x as usize, self.position.y as usize) {
-            Element::Water(_) => 10000.0,
-            Element::Tree(_) => 10000.0,
+            Element::Water(_) => 1.0,
+            Element::Tree(_) => 1.0,
             _ => 0.0
         };
 
-        hunger_reward + thirst_reward +resource_reward+ 1.0
+        let age_reward = (self.age as f64 - 100.0).max(0.0) * 10000.0;
+
+        hunger_reward + thirst_reward +resource_reward + age_reward
     }
 
     fn simulate_action(&mut self, action : usize) -> (State, f64, bool) {
@@ -123,27 +121,13 @@ impl Agent for Human{
             1 => reward = Move::execute(self, Position::new(-1, 0)),
             2 => reward = Move::execute(self, Position::new(0, 1)),
             3 => reward = Move::execute(self, Position::new(0, -1)),
-            4 => reward = Drink::execute(self, 100),
-            5 => reward = Eat::execute(self, 100),
-            _ => reward = {
-                let env = &self.environment.read().unwrap();
-                let resource = env.get_element(self.position.x as usize, self.position.y as usize); 
-                if matches!(resource, Element::Water(_)) {
-                    1000.0;
-                }
-                else if matches!(resource, Element::Tree(_)) {
-                    1000.0;
-                }
-                -100.0
-            }
+            4 => reward = Drink::execute(self, 30),
+            5 => reward = Eat::execute(self, 30),
+            _ => ()
             
         }
-        self.simulation_step_time();
-        if !self.alive {
-            reward = -100.0;
-        }
-        
-        (encode(&self), reward, !self.alive || self.age > 10000)
+        self.simulation_step_time();        
+        (encode(&self), reward + self.compute_reward(), !self.alive || self.age > 10000)
     }
 
     fn choose_action(&self) -> usize {
@@ -157,8 +141,8 @@ impl Agent for Human{
             1 => Move::execute(self, Position::new(-1, 0)),
             2 => Move::execute(self, Position::new(0, 1)),
             3 => Move::execute(self, Position::new(0, -1)),
-            4 => Drink::execute(self, 100),
-            5 => Eat::execute(self, 100),
+            4 => Drink::execute(self, 30),
+            5 => Eat::execute(self, 30),
             _ => 0.0
         };
     }
@@ -178,12 +162,13 @@ pub struct Drink;
 impl Action for Drink {
     type Item = i32;
     fn execute(human: &mut Human, value : Self::Item) -> f64{
+        let previous_thirst = human.thirst.value;
         if let Element::Water(_) = human.environment.read().unwrap()
             .get_element(human.position.x as usize, human.position.y as usize) {
                 human.thirst.value = 100.min(human.thirst.value + value);
-                return 50.0;
+                return (human.thirst.value - previous_thirst) as f64 * 10.0;
             }
-        -100.0
+        -1.0
     }
 }
 pub struct Eat;
@@ -191,12 +176,14 @@ pub struct Eat;
 impl Action for Eat {
     type Item = i32;
     fn execute(human: &mut Human, value : Self::Item) -> f64{
+        let previous_hunger = human.hunger.value;
+        
         if let Element::Tree(_) = human.environment.read().unwrap()
                                 .get_element(human.position.x as usize, human.position.y as usize) {
             human.hunger.value = 100.min(human.hunger.value + value);
-            return 50.0;
+            return (human.hunger.value - previous_hunger) as f64* 10.0;
         }
-        -100.0
+        -1.0
     }
 }
 
@@ -216,45 +203,8 @@ impl Action for Move {
             human.position.y = human.position.y.clamp(0, world_limits.1 as i32 - 1);
             return -1.0
         }
-        
-        let env = &human.environment.read().unwrap();
-        let resource = env.get_element(human.position.x as usize, human.position.y as usize); 
-        if human.thirst.value < 80 && matches!(resource, Element::Water(_)) {
-            return 1000.0;
-        }
-        else if human.hunger.value < 80  && matches!(resource, Element::Tree(_)) {
-            return 1000.0;
-        }
-        else if human.thirst.value < 80 {
-            let closest_lake = 
-                env.lakes
-                .iter()
-                .min_by(|x,y| (&x).manhattan_dist(&human.position).cmp(&y.manhattan_dist(&human.position)))
-                .unwrap();
-            if (closest_lake.x - human.position.x) * value.x > 0 
-            || (closest_lake.y - human.position.y) * value.y > 0 {
-                return 1000.0;
-            }
-            else {
-                return 0.0;
-            }
-        }
-        else if human.hunger.value < 80 {
-            let closest_forest = 
-                env.forests
-                .iter()
-                .min_by(|x,y| (&x).manhattan_dist(&human.position).cmp(&y.manhattan_dist(&human.position)))
-                .unwrap();
-            if (closest_forest.x - human.position.x) * value.x > 0 
-            || (closest_forest.y - human.position.y) * value.y > 0 {
-                return 1000.0;
-            }
-            else {
-                return 0.0;
-            }
-        }
 
-        100.0
+        0.0
     }
 } 
 
@@ -263,31 +213,39 @@ fn encode(human: &Human) -> State {
     let env = human.environment.read().unwrap();
     let thirst_state = match human.thirst.value {
         v if v > 80 => 0,
-        v if v > 30 => 1,
-        v if v > 10 => 2,
+        v if v > 50 => 1,
+        v if v > 20 => 2,
         _ => 3,
     };
 
     let hunger_state = match human.hunger.value {
         v if v > 80 => 0,
-        v if v > 30 => 1,
-        v if v > 10 => 2,
+        v if v > 50 => 1,
+        v if v > 20 => 2,
         _ => 3,
     };
 
-    let distance_to_lake = env.distance_to_lake(human);
-    let closeness_to_lake = match distance_to_lake {
-        v if v > 20 => 0,
-        v if v > 5 => 1,
-        _ => 2,
-    };
+    let closest_lake = env.closest_lake(human);
+    let lake_direction = *closest_lake - human.position;
+    let lake_direction_state = 
+        if lake_direction.x.abs() > lake_direction.y.abs() {
+            if lake_direction.x >= 0 { 0 } 
+            else { 1 }
+        } else {
+            if lake_direction.y >= 0 { 2 } 
+            else { 3 }
+        };
 
-    let distance_to_forest = env.distance_to_forest(human);
-    let closeness_to_forest = match distance_to_forest {
-        v if v > 20 => 0,
-        v if v > 5 => 1,
-        _ => 2,
-    };
+    let closest_forest = env.closest_forest(human);
+    let forest_direction = *closest_forest - human.position;
+    let forest_direction_state = 
+        if forest_direction.x.abs() > forest_direction.y.abs() {
+            if forest_direction.x >= 0 { 0 } 
+            else { 1 }
+        } else {
+            if forest_direction.y >= 0 { 2 } 
+            else { 3 }
+        };
 
     let current_element = match env.get_element(human.position.x as usize, human.position.y as usize) {
         Element::Water(_) => 0,
@@ -298,9 +256,9 @@ fn encode(human: &Human) -> State {
     // Calculate the key using the encoded states
     let key = (((((human.position.x as usize * env.world_limits.1 + human.position.y as usize) * 4
         + thirst_state as usize) * 4
-        + hunger_state as usize) * 3
-        + closeness_to_lake as usize) * 3
-        + closeness_to_forest as usize) * 3
+        + hunger_state as usize) * 4
+        + lake_direction_state as usize) * 4
+        + forest_direction_state as usize) * 3
         + current_element as usize;
 
     State { key: key as usize }
@@ -313,7 +271,7 @@ fn nb_states(human : &Human) -> usize {
     * env.world_limits.1    // World Width
     * 4                     // Thirst States
     * 4                     // Hunger States    
-    * 3                     // Closeness to Forest States
-    * 3                     // Closeness to Lake States
+    * 4                     // Closeness to Forest States
+    * 4                     // Closeness to Lake States
     * 3                     // Current Element
 }

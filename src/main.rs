@@ -1,5 +1,5 @@
 use brains::simulation::{
-        actors:: { behaviour::RlBehaviour,
+        actors:: { behaviour::QLBehaviour,
                     humans::Human},
         world::World};
             
@@ -16,7 +16,7 @@ use std::time::Duration;
 static TIME_STEP : Duration = Duration::from_millis(200);
 fn main() {
     let my_world = Arc::new(Mutex::new(World::new(20,20,10)));
-    let behaviour = Arc::new(RwLock::new(RlBehaviour::new()));
+    let behaviour = Arc::new(RwLock::new(QLBehaviour::new()));
     {
         let mut world_data = my_world.lock().unwrap();
         world_data.add_forest( Position{x : 12, y : 1}, Position{x : 18, y : 4});
@@ -27,7 +27,7 @@ fn main() {
         let world_data = my_world.lock().unwrap();
         let mut train_human = Human::new(0, 0, behaviour.clone(), world_data.environment.clone());
         behaviour.write().unwrap()
-        .train(&mut train_human, 1000, 0.2, 0.6, 0.8);
+        .train(&mut train_human, 100000, 0.2, 0.6, 0.8);
     }
     
     {

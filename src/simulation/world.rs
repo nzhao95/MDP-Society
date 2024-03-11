@@ -43,6 +43,20 @@ impl Environment {
         .min()
         .unwrap()
     }
+
+    pub fn closest_lake(&self, human : &Human) -> &Position {
+        self.lakes
+        .iter()
+        .min_by(|a,b| a.manhattan_dist(&human.position).cmp(&b.manhattan_dist(&human.position)))
+        .unwrap()
+    } 
+
+    pub fn closest_forest(&self, human : &Human) -> &Position {
+        self.forests
+        .iter()
+        .min_by(|a,b| a.manhattan_dist(&human.position).cmp(&b.manhattan_dist(&human.position)))
+        .unwrap()
+    } 
 }
 
 impl World {

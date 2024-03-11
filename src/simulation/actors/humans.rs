@@ -1,8 +1,8 @@
 
-use crate::simulation::actors::behaviour::{Behaviour, RlBehaviour};
+use crate::simulation::actors::behaviour::{Behaviour, QLBehaviour};
 use crate::simulation::world::{Element, Environment};
 
-use crate::learning::reinforcement::Agent;
+use crate::learning::qlearning::Agent;
 use crate::types::Position;
 
 use std::sync::{Arc, RwLock};
@@ -17,12 +17,12 @@ pub struct Human {
     pub energy : Need,
     pub money : Need,
     pub alive : bool,
-    pub behaviour : Arc<RwLock<RlBehaviour>>,
+    pub behaviour : Arc<RwLock<QLBehaviour>>,
     pub environment : Arc<RwLock<Environment>>
 }
 
 impl Human {
-    pub fn new(x : i32, y : i32, behaviour : Arc<RwLock<RlBehaviour>>, environment :Arc<RwLock<Environment>>) -> Self{
+    pub fn new(x : i32, y : i32, behaviour : Arc<RwLock<QLBehaviour>>, environment :Arc<RwLock<Environment>>) -> Self{
         Human{
             position : Position{x, y},
             age : 0,

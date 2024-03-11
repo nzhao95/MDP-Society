@@ -1,1 +1,2 @@
-pub mod reinforcement;
+pub mod qlearning;
+pub mod deepqnet;
